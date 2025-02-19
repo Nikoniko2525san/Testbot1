@@ -1,46 +1,45 @@
+// 必要なモジュールをインポート
+const express = require('express');
+const bodyParser = require('body-parser');
+const { Client } = require('@line/bot-sdk');
 require('dotenv').config();
-require("dotenv").config();
-const express = require("express");
-const { Client, middleware } = require("@line/bot-sdk");
 
+// Expressの設定
+const app = express();
+const port = process.env.PORT || 3000;
+
+// LINEのAPI設定
 const config = {
   channelAccessToken: process.env.LINE_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
 
-const app = express();
 const client = new Client(config);
 
-app.use(express.json());
-app.use(middleware(config));
+// ミドルウェア
+app.use(bodyParser.json());
 
-// Webhookリクエストを受け取る
-app.post("/webhook", (req, res) => {
+// イベントハンドラ
+app.post('/webhook', (req, res) => {
   const events = req.body.events;
-
   Promise.all(events.map(handleEvent))
-    .then(() => res.sendStatus(200))
-    .catch((error) => {
-      console.error(error);
-      res.status(500).send("Internal Server Error");
+    .then(() => res.status(200).send('OK'))
+    .catch((err) => {
+      console.error(err);
+      res.status(500).send('Internal Server Error');
     });
 });
 
-// メッセージを処理する
-async function handleEvent(event) {
-  if (event.type !== "message" || event.message.type !== "text") {
-    return Promise.resolve(null);
+// イベント処理
+function handleEvent(event) {
+  if (event.type === 'message' && event.message.type === 'text') {
+    const echo = { type: 'text', text: event.message.text };
+    return client.replyMessage(event.replyToken, echo);
   }
-  
-  try {
-    await client.replyMessage(event.replyToken, {
-      type: "text",
-      text: `「${event.message.text}」って言いましたね！`,
-    });
-  } catch (error) {
-    console.error("Message reply failed", error);
-    throw new Error("Message reply failed");
-  }
+  return Promise.resolve(null);
 }
 
-app.listen(3000, () => console.log("Server running on port 3000"));
+// サーバー起動
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
